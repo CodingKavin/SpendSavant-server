@@ -1,0 +1,31 @@
+{
+  "name": "server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "node --watch server.js",
+    "start": "node server.js",
+    "database": "mysql -u root -p < ./utils/instock.sql"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maritzbuchholz/instock-server.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/maritzbuchholz/instock-server/issues"
+  },
+  "homepage": "https://github.com/maritzbuchholz/instock-server#readme",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.2.3",
+    "express": "^5.2.1",
+    "mysql2": "^3.16.3",
+    "uuid": "^13.0.0"
+  }
+}
