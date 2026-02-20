@@ -1,7 +1,7 @@
 import express from "express";
 import sql from "./utils/postgres.js";
 import { authenticateJWT } from "./utils/authMiddleware.js";
-import { validateExpense } from "./utils/expenseValidation.js";
+import { validateExpense, validateExpenseUpdate } from "./utils/expenseValidation.js";
 
 const router = express.Router();
 
@@ -63,7 +63,37 @@ router.route("/:id")
         }
     })
     .patch(async (req, res) => {
+        try {
+            const expenseId = req.params.id;
+            const errors = validateExpenseUpdate(req.body);
+            if (errors) {
+                return res.status(400).json({ errors })
+            }
 
+            const fields = req.body;
+            const keys = Object.keys(fields);
+
+            if (keys.length === 0) {
+                return res.status(400).json({ message: "No fields provided for update" });
+            }
+            const setClause = keys
+                .map(key => sql`${key} = ${fields[key]}`)
+                .reduce((a, b) => sql`${a}, ${b}`);
+
+            const [updatedExpense] = await sql`UPDATE expenses 
+            SET ${setClause}, updated_at = NOW() 
+            WHERE id = ${expenseId} AND user_id = ${req.user.id}
+            RETURNING *`;
+
+            if (!updatedExpense) {
+                return res.status(404).json({ message: "Expense not found" });
+            }
+
+            res.json(updatedExpense);
+        } catch (error) {
+            console.error(error);
+            res.status(500).json({ message: "Error occured on server" });
+        }
     })
 
 export default router;
