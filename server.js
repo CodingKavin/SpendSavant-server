@@ -2,7 +2,6 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import expenses from "./routes/expenses.js";
-import sql from './utils/postgres.js';
 
 
 const port = process.env.PORT || 5000;
