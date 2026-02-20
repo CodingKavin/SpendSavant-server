@@ -1,5 +1,5 @@
 import express from "express";
-import sql from "./utils/postgres.js";
+import sql from "../utils/postgres.js";
 import { authenticateJWT } from "./utils/authMiddleware.js";
 import { validateExpense, validateExpenseUpdate } from "./utils/expenseValidation.js";
 
