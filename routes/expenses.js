@@ -23,7 +23,7 @@ router.route("/:id")
             const [results] = await connection.query(sql, [expenseId]);
             if (results.length === 0) {
                 return res.status(404).json({
-                    message: `No warehouse found with id ${expenseId}`
+                    message: `No expense found with id ${expenseId}`
                 });
             }
             res.json(results[0]);
