@@ -10,8 +10,23 @@ router.use(authenticateJWT)
 router.route("/")
     .get(async (req, res) => {
         try {
-            const expenses = await sql`SELECT * FROM expenses WHERE user_id = ${req.user.id} ORDER BY date DESC`;
-            res.json(expenses);
+            const limit = parseInt(req.query.limit) || 10;
+            const page = parseInt(req.query.page) || 1;
+            const offset = (page - 1) * limit;
+
+            const expenses = await sql`SELECT * FROM expenses 
+            WHERE user_id = ${req.user.id} 
+            ORDER BY date DESC
+            LIMIT ${limit} OFFSET ${offset}`;
+
+            const [countResult] = await sql`
+            SELECT COUNT(*) AS total
+            FROM expenses
+            WHERE user_id = ${req.user.id}`;
+
+            const total = parseInt(countResult.total);
+
+            res.json({ page, limit, total, totalPages: Math.ceil(total / limit) }, expenses);
         } catch (error) {
             console.error(error);
             res.status(500).send("Error Occurred on server");
