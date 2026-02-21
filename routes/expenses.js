@@ -26,7 +26,7 @@ router.route("/")
 
             const total = parseInt(countResult.total);
 
-            res.json({ page, limit, total, totalPages: Math.ceil(total / limit) }, expenses);
+            res.json({ page, limit, total, totalPages: Math.ceil(total / limit), expenses: expenses });
         } catch (error) {
             console.error(error);
             res.status(500).send("Error Occurred on server");
