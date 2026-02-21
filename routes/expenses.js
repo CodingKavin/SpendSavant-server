@@ -98,7 +98,7 @@ router.route("/:id")
 
             Object.entries(fields).forEach(([key, value]) => {
                 if (allowedFields.includes(key)) {
-                    updates.push(sql`${sql.identifier([key])} = ${value}`);
+                    updates.push(sql`${sql(key)} = ${value}`);
                 }
             });
 
