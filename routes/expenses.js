@@ -80,25 +80,36 @@ router.route("/:id")
     .patch(async (req, res) => {
         try {
             const expenseId = req.params.id;
-            const errors = validateExpenseUpdate(req.body);
-            if (errors) {
-                return res.status(400).json({ errors })
-            }
 
-            const fields = req.body;
+            const fields = req.body || {};
             const keys = Object.keys(fields);
 
             if (keys.length === 0) {
                 return res.status(400).json({ message: "No fields provided for update" });
             }
-            const setClause = keys
-                .map(key => sql`${key} = ${fields[key]}`)
-                .reduce((a, b) => sql`${a}, ${b}`);
+
+            const errors = validateExpenseUpdate(req.body);
+            if (errors) {
+                return res.status(400).json({ errors })
+            }
+
+            const allowedFields = ["category", "amount", "date", "description", "recurrence"]
+            const updates = [];
+
+            Object.entries(fields).forEach(([key, value]) => {
+                if (allowedFields.includes(key)) {
+                    updates.push(sql`${sql.identifier([key])} = ${value}`);
+                }
+            });
+
+            if (updates.length === 0) {
+                return res.status(400).json({ message: "No valid fields provided" });
+            }
 
             const [updatedExpense] = await sql`UPDATE expenses 
-            SET ${setClause}, updated_at = NOW() 
-            WHERE id = ${expenseId} AND user_id = ${req.user.id}
-            RETURNING *`;
+            SET ${sql.join(updates, sql`, `)}, updated_at = NOW() 
+            WHERE id = ${expenseId} AND user_id = ${req.user.id} 
+            RETURNING *;`;
 
             if (!updatedExpense) {
                 return res.status(404).json({ message: "Expense not found" });
