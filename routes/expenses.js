@@ -80,46 +80,58 @@ router.route("/:id")
     .patch(async (req, res) => {
         try {
             const expenseId = req.params.id;
-
             const fields = req.body || {};
-            const keys = Object.keys(fields);
 
+            const keys = Object.keys(fields);
             if (keys.length === 0) {
                 return res.status(400).json({ message: "No fields provided for update" });
             }
 
-            const errors = validateExpenseUpdate(req.body);
+            const errors = validateExpenseUpdate(fields);
             if (errors) {
-                return res.status(400).json({ errors })
+                return res.status(400).json({ errors });
             }
 
-            const allowedFields = ["category", "amount", "date", "description", "recurrence"]
-            const updates = [];
+            const allowedFields = ["category", "amount", "date", "description", "recurrence"];
 
-            Object.entries(fields).forEach(([key, value]) => {
-                if (allowedFields.includes(key)) {
-                    updates.push(sql`${sql(key)} = ${value}`);
-                }
-            });
+            const validEntries = Object.entries(fields)
+                .filter(([key]) => allowedFields.includes(key));
 
-            if (updates.length === 0) {
+            if (validEntries.length === 0) {
                 return res.status(400).json({ message: "No valid fields provided" });
             }
 
-            const [updatedExpense] = await sql`UPDATE expenses 
-            SET ${sql.join(updates, sql`, `)}, updated_at = NOW() 
-            WHERE id = ${expenseId} AND user_id = ${req.user.id} 
-            RETURNING *;`;
+            // Build SET clause safely
+            const setParts = validEntries.map(([key], index) => {
+                return `"${key}" = $${index + 1}`;
+            });
 
-            if (!updatedExpense) {
+            const values = validEntries.map(([, value]) => value);
+
+            const query = `
+            UPDATE expenses
+            SET ${setParts.join(", ")}, updated_at = NOW()
+            WHERE id = $${values.length + 1}
+            AND user_id = $${values.length + 2}
+            RETURNING *;
+        `;
+
+            const result = await sql.unsafe(query, [
+                ...values,
+                expenseId,
+                req.user.id
+            ]);
+
+            if (result.length === 0) {
                 return res.status(404).json({ message: "Expense not found" });
             }
 
-            res.json(updatedExpense);
+            res.json(result[0]);
+
         } catch (error) {
             console.error(error);
-            res.status(500).json({ message: "Error occured on server" });
+            res.status(500).json({ message: "Error occurred on server" });
         }
-    })
+    });
 
 export default router;
