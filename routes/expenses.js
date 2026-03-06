@@ -7,6 +7,90 @@ const router = express.Router();
 
 router.use(authenticateJWT)
 
+    router.get("/summary", async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { month, year } = req.query;
+
+        const monthNum = Number(month);
+        const yearNum = Number(year);
+
+        if (!month || !year || isNaN(monthNum) || isNaN(yearNum)) {
+            return res.status(400).json({ error: "Month and Year must be valid" });
+        }
+
+        const startDate = new Date(yearNum, monthNum - 1, 1);
+        const endDate = new Date(yearNum, monthNum, 0);
+
+        const expenses = await sql`
+            SELECT id, category, amount, date, recurrence
+            FROM expenses
+            WHERE user_id = ${userId}
+            AND date <= ${endDate}
+        `;
+
+        let total = 0;
+        const categoryTotals = {};
+
+        for (const expense of expenses) {
+            const expenseDate = new Date(expense.date + "T00:00:00");
+
+            let occurrences = 0;
+
+            // one-time expense
+            if (!expense.recurrence || expense.recurrence === "none") {
+                if (expenseDate >= startDate && expenseDate <= endDate) {
+                    occurrences = 1;
+                }
+            }
+
+            // monthly recurrence
+            if (expense.recurrence === "monthly") {
+                if (expenseDate <= endDate) {
+                    occurrences = 1;
+                }
+            }
+
+            // weekly recurrence
+            if (expense.recurrence === "weekly") {
+                if (expenseDate <= endDate) {
+                    const firstOccurrence = expenseDate > startDate ? expenseDate : startDate;
+                    const diffDays = Math.floor((endDate - firstOccurrence) / (1000 * 60 * 60 * 24));
+                    occurrences = Math.floor(diffDays / 7) + 1;
+                }
+            }
+
+            const subtotal = occurrences * Number(expense.amount);
+
+            if (subtotal > 0) {
+                total += subtotal;
+
+                if (!categoryTotals[expense.category]) {
+                    categoryTotals[expense.category] = 0;
+                }
+
+                categoryTotals[expense.category] += subtotal;
+            }
+        }
+
+        const byCategory = Object.entries(categoryTotals).map(([category, total]) => ({
+            category,
+            total
+        }));
+
+        res.json({
+            month: monthNum,
+            year: yearNum,
+            total,
+            byCategory
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Error occurred on server" });
+    }
+});
+
 router.route("/")
     .get(async (req, res) => {
         try {
@@ -14,7 +98,7 @@ router.route("/")
             const page = parseInt(req.query.page) || 1;
             const offset = (page - 1) * limit;
 
-            const expenses = await sql`SELECT * FROM expenses 
+            const expenses = await sql`SELECT id, category, amount, date, description, recurrence FROM expenses 
             WHERE user_id = ${req.user.id} 
             ORDER BY date DESC
             LIMIT ${limit} OFFSET ${offset}`;
