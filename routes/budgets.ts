@@ -1,15 +1,18 @@
-import express from "express";
+import express, {type Response} from "express";
 import sql from "../utils/postgres.js";
-import { authenticateJWT } from "../utils/authMiddleware.js";
+import { authenticateJWT, type AuthenticatedRequest } from "../utils/authMiddleware.js";
 import { validateBudget } from "../utils/expenseValidation.js";
 
 const router = express.Router();
 
-router.use(authenticateJWT)
+router.use(authenticateJWT);
 
 router.route("/")
-    .get(async (req, res) => {
-        const user_id = req.user.id;
+    .get(async (req: AuthenticatedRequest, res: Response) => {
+        const user_id = req.user?.id;
+        if (!user_id) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
         const { month, year } = req.query;
 
         const monthNum = Number(month);
@@ -31,8 +34,11 @@ router.route("/")
             return res.status(500).json({ error: "Error Occurred on server" });
         }
     })
-    .post(async (req, res) => {
-        const user_id = req.user.id;
+    .post(async (req: AuthenticatedRequest, res: Response) => {
+        const user_id = req.user?.id;
+        if (!user_id) {
+            return res.status(401).json({ error: "Unauthorized" });
+        }
         const { month, year, amount } = req.body;
 
         const monthNum = Number(month);
@@ -60,7 +66,6 @@ router.route("/")
             console.error(error);
             return res.status(500).json({ error: "Error Occurred on server" });
         }
-    })
-    ;
+    });
 
 export default router;

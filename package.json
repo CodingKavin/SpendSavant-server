@@ -1,26 +1,24 @@
 {
-  "name": "server",
+  "name": "spendshifterserver",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch server.js",
-    "start": "node server.js",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "dev": "tsx watch server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
     "database": "mysql -u root -p < ./utils/instock.sql"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/maritzbuchholz/instock-server.git"
+    "url": "git+https://github.com/CodingKavin/SpendShifter-server.git"
   },
   "keywords": [],
-  "author": "",
+  "author": "Kavin Paul",
   "license": "ISC",
   "type": "module",
-  "bugs": {
-    "url": "https://github.com/maritzbuchholz/instock-server/issues"
-  },
-  "homepage": "https://github.com/maritzbuchholz/instock-server#readme",
   "dependencies": {
     "cors": "^2.8.6",
     "dotenv": "^17.2.3",
@@ -28,5 +26,13 @@
     "jose": "^6.1.3",
     "postgres": "^3.4.8",
     "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^25.8.0",
+    "tsx": "^4.22.0",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.6"
   }
 }

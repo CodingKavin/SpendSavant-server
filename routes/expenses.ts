@@ -1,6 +1,6 @@
-import express from "express";
+import express, {type Response} from "express";
 import sql from "../utils/postgres.js";
-import { authenticateJWT } from "../utils/authMiddleware.js";
+import { authenticateJWT, type AuthenticatedRequest } from "../utils/authMiddleware.js";
 import {
   validateExpense,
   validateExpenseUpdate,
@@ -10,9 +10,12 @@ const router = express.Router();
 
 router.use(authenticateJWT);
 
-router.get("/summary", async (req, res) => {
+router.get("/summary", async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
     const { month, year } = req.query;
 
     const monthNum = Number(month);
@@ -33,7 +36,7 @@ router.get("/summary", async (req, res) => {
     `;
 
     let total = 0;
-    const categoryTotals = {};
+    const categoryTotals: Record<string, number> = {};
 
     for (const expense of expenses) {
       const expenseDate = new Date(expense.date);
@@ -58,7 +61,7 @@ router.get("/summary", async (req, res) => {
           expenseDate > startDate ? expenseDate : startDate;
         if (firstOccurrence <= endDate) {
           const diffDays = Math.floor(
-            (endDate - firstOccurrence) / (1000 * 60 * 60 * 24),
+            (endDate.getTime() - firstOccurrence.getTime()) / (1000 * 60 * 60 * 24),
           );
           occurrences = Math.floor(diffDays / 7) + 1;
         }
@@ -80,7 +83,7 @@ router.get("/summary", async (req, res) => {
       }),
     );
 
-    res.json({
+    return res.json({
       month: monthNum,
       year: yearNum,
       total,
@@ -88,81 +91,109 @@ router.get("/summary", async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: "Error occurred on server" });
+    return res.status(500).json({ message: "Error occurred on server" });
   }
 });
 
 router
   .route("/")
-  .get(async (req, res) => {
+  .get(async (req: AuthenticatedRequest, res: Response) => {
     try {
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
       const expenses = await sql`
       SELECT id, category, amount, date, description, recurrence
       FROM expenses
-      WHERE user_id = ${req.user.id}
+      WHERE user_id = ${userId}
       ORDER BY date DESC
     `;
 
-      res.json(expenses);
+      return res.json(expenses);
     } catch (error) {
       console.error(error);
-      res.status(500).send("Error Occurred on server");
+      return res.status(500).send("Error Occurred on server");
     }
   })
-  .post(async (req, res) => {
+  .post(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const errors = validateExpense(req.body);
       if (errors) {
         return res.status(400).json({ errors });
       }
       const { category, amount, date, description, recurrence } = req.body;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
       const [newExpense] =
         await sql`INSERT INTO expenses(user_id, category, amount, date, description, recurrence, created_at, updated_at)
-            VALUES(${req.user.id}, ${category}, ${amount}, ${date}, ${description}, ${recurrence}, NOW(), NOW()) RETURNING *`;
-      res.status(201).json(newExpense);
+            VALUES(${userId}, ${category}, ${amount}, ${date}, ${description}, ${recurrence}, NOW(), NOW()) RETURNING *`;
+      return res.status(201).json(newExpense);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "Error Occurred on server" });
+      return res.status(500).json({ message: "Error Occurred on server" });
     }
   });
 
 router
   .route("/:id")
-  .get(async (req, res) => {
+  .get(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const expenseId = req.params.id;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      if (!expenseId) {
+        return res.status(400).json({ error: "Missing expense ID parameter" });
+      }
       const [expense] =
-        await sql`SELECT * FROM expenses WHERE id = ${expenseId} AND user_id = ${req.user.id}`;
+        await sql`SELECT * FROM expenses WHERE id = ${expenseId} AND user_id = ${userId}`;
 
       if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
       }
 
-      res.json(expense);
+      return res.json(expense);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "Error Occurred on server" });
+      return res.status(500).json({ message: "Error Occurred on server" });
     }
   })
-  .delete(async (req, res) => {
+  .delete(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const expenseId = req.params.id;
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      if (!expenseId) {
+        return res.status(400).json({ error: "Missing expense ID parameter" });
+      }
       const result =
-        await sql`DELETE FROM expenses WHERE id = ${expenseId} AND user_id = ${req.user.id} RETURNING *`;
+        await sql`DELETE FROM expenses WHERE id = ${expenseId} AND user_id = ${userId} RETURNING *`;
       if (result.length === 0) {
         return res.status(404).json({ message: "Expense not found" });
       }
-      res.status(200).json({ deleted: result[0] });
+      return res.status(200).json({ deleted: result[0] });
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "Error Occurred on server" });
+      return res.status(500).json({ message: "Error Occurred on server" });
     }
   })
-  .patch(async (req, res) => {
+  .patch(async (req: AuthenticatedRequest, res: Response) => {
     try {
       const expenseId = req.params.id;
       const fields = req.body || {};
-
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Unauthorized" });
+      }
+      if (!expenseId) {
+        return res.status(400).json({ error: "Missing expense ID parameter" });
+      }
       const keys = Object.keys(fields);
       if (keys.length === 0) {
         return res
@@ -196,7 +227,7 @@ router
         return `"${key}" = $${index + 1}`;
       });
 
-      const values = validEntries.map(([, value]) => value);
+      const values = validEntries.map(([, value]) => value) as unknown[];
 
       const query = `
             UPDATE expenses
@@ -209,17 +240,17 @@ router
       const result = await sql.unsafe(query, [
         ...values,
         expenseId,
-        req.user.id,
-      ]);
+        userId,
+      ] as (string | number | Date | null)[]);
 
       if (result.length === 0) {
         return res.status(404).json({ message: "Expense not found" });
       }
 
-      res.json(result[0]);
+      return res.json(result[0]);
     } catch (error) {
       console.error(error);
-      res.status(500).json({ message: "Error occurred on server" });
+      return res.status(500).json({ message: "Error occurred on server" });
     }
   });
 
