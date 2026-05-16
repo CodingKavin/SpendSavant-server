@@ -5,7 +5,7 @@ import { validateBudget } from "../utils/expenseValidation.js";
 
 const router = express.Router();
 
-router.use(authenticateJWT)
+router.use(authenticateJWT);
 
 router.route("/")
     .get(async (req: AuthenticatedRequest, res: Response) => {
@@ -66,7 +66,6 @@ router.route("/")
             console.error(error);
             return res.status(500).json({ error: "Error Occurred on server" });
         }
-    })
-    ;
+    });
 
 export default router;
